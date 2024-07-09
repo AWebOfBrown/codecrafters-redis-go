@@ -19,8 +19,11 @@ func main() {
 	}
 
 	pong := "+PONG\r\n"
-	response := []byte(pong)
 
-	conn.Write(response)
-	conn.Close()
+	for {
+		var b []byte
+		conn.Read(b)
+		res := []byte(pong)
+		conn.Write(res)
+	}
 }
