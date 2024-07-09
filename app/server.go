@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"net"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -17,13 +19,21 @@ func main() {
 		fmt.Println("Error accepting connection: ", err.Error())
 		os.Exit(1)
 	}
+	defer conn.Close()
 
 	pong := "+PONG\r\n"
-
+	res := []byte(pong)
+	reader := bufio.NewReader(conn)
 	for {
-		var b []byte
-		conn.Read(b)
-		res := []byte(pong)
-		conn.Write(res)
+		msg, err := reader.ReadString('\n')
+		if err != nil {
+			panic(err)
+		}
+
+		msg = strings.Trim(msg, "\r\n")
+		if msg == "PING" {
+			conn.Write(res)
+		}
 	}
+
 }
