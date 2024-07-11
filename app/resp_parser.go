@@ -12,11 +12,13 @@ const (
 type RESPParser struct {
 	lexer   *RESPLexer
 	encoder *RESPEncoder
+	dict    map[string]string
 }
 
-func NewRESPParser(encoder *RESPEncoder) *RESPParser {
+func NewRESPParser(encoder *RESPEncoder, mp map[string]string) *RESPParser {
 	return &RESPParser{
 		encoder: encoder,
+		dict:    mp,
 	}
 }
 
@@ -34,6 +36,21 @@ func (p *RESPParser) Parse(tokens []*RESPToken) []*RESPToken {
 					Type:   "$",
 					Value:  "PONG",
 					length: 4,
+				},
+			})
+		case "set":
+			key := tokens[2].Value.(string)
+			value := tokens[3].Value.(string)
+			p.dict[key] = value
+			response = p.encoder.Encode([]*RESPToken{{Type: "+", Value: "OK"}})
+		case "get":
+			key := tokens[2].Value.(string)
+			value := p.dict[key]
+			response = p.encoder.Encode([]*RESPToken{
+				{
+					Type:   "$",
+					Value:  p.dict[key],
+					length: len(value),
 				},
 			})
 		}

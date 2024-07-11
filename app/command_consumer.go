@@ -2,7 +2,7 @@ package main
 
 import "net"
 
-func commandConsumer(channel <-chan Message, conn net.Conn) {
+func commandConsumer(channel <-chan Message, conn net.Conn, dict map[string]string) {
 	for {
 		msg := <-channel
 
@@ -11,7 +11,7 @@ func commandConsumer(channel <-chan Message, conn net.Conn) {
 		}
 
 		encoder := NewRESPEncoder()
-		parser := NewRESPParser(encoder)
+		parser := NewRESPParser(encoder, dict)
 		response := parser.Parse(msg.command)
 
 		if len(response) >= 1 {
@@ -23,6 +23,8 @@ func commandConsumer(channel <-chan Message, conn net.Conn) {
 				}
 			}
 			conn.Write(encodedResponse)
+		} else {
+			conn.Write([]byte("+OK\r\n"))
 		}
 	}
 

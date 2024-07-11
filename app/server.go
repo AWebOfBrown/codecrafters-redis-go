@@ -13,6 +13,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	mapStructure := make(map[string]string)
+
 	for {
 		conn, err := l.Accept()
 		if err != nil {
@@ -20,6 +22,6 @@ func main() {
 			os.Exit(1)
 		}
 
-		go handleConnection(conn)
+		go handleConnection(conn, &mapStructure)
 	}
 }

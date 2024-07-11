@@ -10,9 +10,11 @@ import (
 
 func TestRESPLexer_ProduceTokens(t *testing.T) {
 	server, client := net.Pipe()
-
-	input := "*2\r\n$4\r\nECHO\r\n$5\r\nmango\r\n"
+	//"*2\r\n$4\r\nECHO\r\n$5\r\nmango\r\n"
+	// input := "*3\r\n$3\r\nset\r\n$3\r\nfoo\r\n$3\r\nbar\r\n"
+	input := "*3\r\n$3\r\nSET\r\n$6\r\norange\r\n$5\r\napple\r\n"
 	encodedInput := []byte(input)
+	dict := make(map[string]string)
 
 	var wg sync.WaitGroup
 
@@ -29,6 +31,6 @@ func TestRESPLexer_ProduceTokens(t *testing.T) {
 	}(client)
 	wg.Add(1)
 
-	handleConnection(server)
+	handleConnection(server, &dict)
 	wg.Wait()
 }
