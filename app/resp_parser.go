@@ -33,23 +33,23 @@ func (p *RESPParser) Parse(tokens []*RESPToken) []*RESPToken {
 	if str, ok := command.(string); ok {
 		switch strings.ToLower(str) {
 		case "echo":
-			response = p.parseEcho(tokens[2])
+			response = []*RESPToken{tokens[2]}
 		case "ping":
-			response = p.encoder.Encode([]*RESPToken{
+			response = []*RESPToken{
 				{
 					Type:   "$",
 					Value:  "PONG",
 					length: 4,
 				},
-			})
+			}
 		case "set":
 			p.parseSet(tokens)
 			//todo: handle returning set value if requested
-			response = p.encoder.Encode([]*RESPToken{{Type: "+", Value: "OK"}})
+			response = []*RESPToken{{Type: "+", Value: "OK"}}
 		case "get":
 			key := tokens[2].Value.(string)
 			value := p.dict[key]
-			response = p.encoder.Encode([]*RESPToken{{Type: "$", Value: value}})
+			response = []*RESPToken{{Type: "$", Value: value}}
 		}
 	}
 
@@ -92,22 +92,11 @@ func (p *RESPParser) parseSet(tokens []*RESPToken) []*RESPToken {
 		}(&p.dict, key)
 	}
 
-	return p.encoder.Encode([]*RESPToken{
+	return []*RESPToken{
 		{
 			Type:   "$",
 			Value:  p.dict[key],
 			length: len(value),
 		},
-	})
-}
-
-func (p *RESPParser) parseEcho(echoArg *RESPToken) []*RESPToken {
-	echoVal := echoArg.Value
-	response := append(make([]*RESPToken, 0), echoArg)
-
-	if _, ok := echoVal.(string); ok {
-		response = p.encoder.Encode(response)
 	}
-
-	return response
 }

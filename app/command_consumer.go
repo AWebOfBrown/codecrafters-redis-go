@@ -13,15 +13,16 @@ func commandConsumerController(queue <-chan RedisCommandQueueMessage, dict map[s
 	for {
 		redisCommand := <-queue
 		response := commandConsumer(redisCommand.command, parser)
-		if len(response) >= 1 {
-			encodedResponse := make([]byte, 0)
-			for _, tok := range response {
+		tokensWithEncodedValues := encoder.Encode(response)
+		if len(tokensWithEncodedValues) >= 1 {
+			encodedAggregatedResponse := make([]byte, 0)
+			for _, tok := range tokensWithEncodedValues {
 				strBytes, ok := tok.Value.([]byte)
 				if ok {
-					encodedResponse = append(encodedResponse, strBytes...)
+					encodedAggregatedResponse = append(encodedAggregatedResponse, strBytes...)
 				}
 			}
-			redisCommand.connection.Write(encodedResponse)
+			redisCommand.connection.Write(encodedAggregatedResponse)
 		} else {
 			fmt.Errorf("Did not generate response for command")
 			redisCommand.connection.Write([]byte("+OK\r\n"))
