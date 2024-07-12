@@ -12,8 +12,8 @@ func commandProducer(reader *bufio.Reader, ch chan<- Message, conn net.Conn) err
 	for {
 		err := lexer.ProduceTokens(ch)
 		if err != nil {
+			ch <- Message{command: nil}
 			if err == io.EOF {
-				ch <- Message{command: nil}
 				conn.Close()
 				return err
 			}

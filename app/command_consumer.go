@@ -1,6 +1,9 @@
 package main
 
-import "net"
+import (
+	"fmt"
+	"net"
+)
 
 func commandConsumer(channel <-chan Message, conn net.Conn, dict map[string]string) {
 	for {
@@ -24,6 +27,7 @@ func commandConsumer(channel <-chan Message, conn net.Conn, dict map[string]stri
 			}
 			conn.Write(encodedResponse)
 		} else {
+			fmt.Errorf("Did not generate response for command")
 			conn.Write([]byte("+OK\r\n"))
 		}
 	}

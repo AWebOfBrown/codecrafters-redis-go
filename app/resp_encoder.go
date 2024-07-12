@@ -25,7 +25,13 @@ func (re *RESPEncoder) Encode(tokens []*RESPToken) []*RESPToken {
 }
 
 func (re *RESPEncoder) encodeBulkString(token *RESPToken) {
-	len := token.length
+	len := len(token.Value.(string))
+
+	if len == 0 {
+		token.Value = []byte("$-1\r\n")
+		return
+	}
+
 	token.Value = []byte(fmt.Sprintf("$%d\r\n%s\r\n", len, token.Value))
 }
 
