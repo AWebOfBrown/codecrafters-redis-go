@@ -44,6 +44,8 @@ func (p *RESPParser) Parse(tokens []*RESPToken) []*RESPToken {
 			response = []*RESPToken{{Type: "$", Value: value}}
 		case "incr":
 			response = p.parseIncr(tokens)
+		case "multi":
+			response = []*RESPToken{{Type: "$", Value: "OK"}}
 		}
 	}
 
