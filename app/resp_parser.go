@@ -59,12 +59,19 @@ func (p *RESPParser) parseIncr(tokens []*RESPToken) []*RESPToken {
 		p.dict[key] = strconv.Itoa(1)
 		return []*RESPToken{{Value: 1, Type: Integer}}
 	}
-	//todo: handle incrementing strings (error)
-	i, _ := strconv.Atoi(currVal)
-	i = i + 1
-	p.dict[key] = strconv.Itoa(i)
 
-	return []*RESPToken{{Value: i, Type: Integer}}
+	currValAsInteger, err := strconv.Atoi(currVal)
+	if err != nil {
+		return []*RESPToken{{
+			Value: "value is not an integer or out of range",
+			Type:  Error,
+		}}
+	}
+	//todo: handle incrementing strings (error)
+	currValAsInteger = 1 + currValAsInteger
+	p.dict[key] = strconv.Itoa(currValAsInteger)
+
+	return []*RESPToken{{Value: currValAsInteger, Type: Integer}}
 }
 
 func (p *RESPParser) parseSet(tokens []*RESPToken) []*RESPToken {

@@ -18,12 +18,18 @@ func (re *RESPEncoder) Encode(tokens []*RESPToken) []*RESPToken {
 			re.encodeString(tok)
 		case Integer:
 			re.encodeInteger(tok)
+		case Error:
+			re.encodeError(tok)
 		default:
 			panic(fmt.Sprintf("Unknown token type: %s", tok.Type))
 		}
 	}
 
 	return tokens
+}
+
+func (re *RESPEncoder) encodeError(token *RESPToken) {
+	token.Value = []byte(fmt.Sprintf("-ERR %s\r\n", token.Value))
 }
 
 func (re *RESPEncoder) encodeInteger(token *RESPToken) {
