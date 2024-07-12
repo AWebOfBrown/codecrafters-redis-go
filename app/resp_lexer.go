@@ -79,23 +79,21 @@ func (rl *RESPLexer) nextToken() ([]*RESPToken, error) {
 	return nil, fmt.Errorf("No token match")
 }
 
-func (rl *RESPLexer) ProduceTokens(ch chan<- Message) error {
-	for {
-		firstByte, err := rl.reader.Peek(1)
-		if err != nil {
-			return rl.handleReadError(err)
-		}
-		if string(firstByte) != Array {
-			return fmt.Errorf("first byte must be array")
-		}
-
-		tokens, err := rl.parseArray()
-		if err != nil {
-			return rl.handleReadError(err)
-		}
-
-		ch <- Message{command: tokens}
+func (rl *RESPLexer) ProduceTokens() ([]*RESPToken, error) {
+	firstByte, err := rl.reader.Peek(1)
+	if err != nil {
+		return nil, rl.handleReadError(err)
 	}
+	if string(firstByte) != Array {
+		return nil, fmt.Errorf("first byte must be array")
+	}
+
+	tokens, err := rl.parseArray()
+	if err != nil {
+		return nil, rl.handleReadError(err)
+	}
+
+	return tokens, nil
 }
 
 func (p *RESPLexer) handleReadError(err error) error {

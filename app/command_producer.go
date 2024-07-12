@@ -7,19 +7,40 @@ import (
 	"net"
 )
 
-func commandProducer(reader *bufio.Reader, ch chan<- Message, conn net.Conn) error {
+func commandProducer(lexer *RESPLexer) ([]*RESPToken, error) {
+	tokens, err := lexer.ProduceTokens()
+
+	if err != nil {
+		if err == io.EOF {
+			return nil, err
+		}
+		fmt.Errorf("Error %s", err)
+		return nil, err
+	}
+
+	return tokens, nil
+}
+
+func commandProducerController(conn net.Conn, queue chan<- RedisCommandQueueMessage) {
+	reader := bufio.NewReader(conn)
 	lexer := NewRESPLexer(reader)
+
 	for {
-		err := lexer.ProduceTokens(ch)
+		command, err := commandProducer(lexer)
+
 		if err != nil {
-			ch <- Message{command: nil}
 			if err == io.EOF {
 				conn.Close()
-				return err
+				return
 			}
-			fmt.Errorf("Error %s", err)
+			fmt.Errorf("Unknown error %s", err)
 			conn.Close()
-			return err
+			return
+		}
+
+		queue <- RedisCommandQueueMessage{
+			command:    command,
+			connection: conn,
 		}
 	}
 }

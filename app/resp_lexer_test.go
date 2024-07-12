@@ -2,41 +2,54 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"net"
 	"sync"
 	"testing"
 )
 
-func TestRESPLexer_ProduceTokens(t *testing.T) {
-	server, client := net.Pipe()
-	//"*2\r\n$4\r\nECHO\r\n$5\r\nmango\r\n"
-	// input := "*3\r\n$3\r\nset\r\n$3\r\nfoo\r\n$3\r\nbar\r\n"
-	// input := "*3\r\n$3\r\nSET\r\n$6\r\norange\r\n$5\r\napple\r\n"
-	input := "*5\r\n$3\r\nSET\r\n$5\r\ngrape\r\n$6\r\nbanana\r\n$2\r\npx\r\n$3\r\n100\r\n"
-	inputGet := "*2\r\n$3\r\nGET\r\n$5\r\ngrape\r\n"
-	encodedInput := []byte(input)
-	encodedGet := []byte(inputGet)
-	dict := make(map[string]string)
+func TestLexer_Test(t *testing.T) {
+	t.Run("Test parsing an array of bulk strings", func(t *testing.T) {
+		server, client := net.Pipe()
+		reader := bufio.NewReader(server)
+		lexer := NewRESPLexer(reader)
 
-	var wg sync.WaitGroup
+		var wg sync.WaitGroup
 
-	// Client
-	go func(conn net.Conn) {
-		defer wg.Done()
-		r := bufio.NewReader(conn)
-		num, err := conn.Write(encodedInput)
-		fmt.Printf("num %d, err %s", num, err)
-		msg, err := r.ReadBytes('\n')
-		fmt.Printf("HEREHERHEHREHR %s, err %s", string(msg), err)
-		conn.Write(encodedGet)
-		msg3, _ := r.ReadBytes('\n')
-		msg4, _ := r.ReadBytes('\n')
-		fmt.Printf("HEREHERHEHREHR %s, %s, err %s", string(msg3), string(msg4), err)
-		conn.Close()
-	}(client)
-	wg.Add(1)
+		bulkString := "*1\r\n$5\r\nhello\r\n"
+		wg.Add(1)
+		go func() {
+			defer client.Close()
+			client.Write([]byte(bulkString))
+			wg.Done()
+		}()
+		tokens, err := lexer.ProduceTokens()
 
-	handleConnection(server, &dict)
-	wg.Wait()
+		server.Write([]byte("+OK\r\n"))
+		wg.Wait()
+
+		if err != nil {
+			t.Errorf("Failed with err %s", err)
+		}
+
+		if len(tokens) != 2 {
+			t.Errorf("Expected 2 tokens, got %d", len(tokens))
+		}
+
+		tokenOneType := tokens[0].Type
+
+		tokenTwoType := tokens[1].Type
+		tokenTwoValue := tokens[1].Value
+
+		if tokenOneType != Array {
+			t.Errorf("Expected array, got %s", tokenOneType)
+		}
+		if tokenTwoType != BulkString {
+			t.Errorf("Expected bulk string, got %s", tokenTwoType)
+		}
+
+		if tokenTwoValue != "hello" {
+			t.Errorf("Expected hello, got %s", tokenTwoValue)
+		}
+	})
+
 }

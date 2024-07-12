@@ -1,22 +1,18 @@
 package main
 
-import (
-	"fmt"
-	"net"
-)
+import "fmt"
 
-func commandConsumer(channel <-chan Message, conn net.Conn, dict map[string]string) {
+func commandConsumer(command []*RESPToken, parser *RESPParser) []*RESPToken {
+	response := parser.Parse(command)
+	return response
+}
+
+func commandConsumerController(queue <-chan RedisCommandQueueMessage, dict map[string]string) {
+	encoder := NewRESPEncoder()
+	parser := NewRESPParser(encoder, dict)
 	for {
-		msg := <-channel
-
-		if msg.command == nil {
-			break
-		}
-
-		encoder := NewRESPEncoder()
-		parser := NewRESPParser(encoder, dict)
-		response := parser.Parse(msg.command)
-
+		redisCommand := <-queue
+		response := commandConsumer(redisCommand.command, parser)
 		if len(response) >= 1 {
 			encodedResponse := make([]byte, 0)
 			for _, tok := range response {
@@ -25,11 +21,10 @@ func commandConsumer(channel <-chan Message, conn net.Conn, dict map[string]stri
 					encodedResponse = append(encodedResponse, strBytes...)
 				}
 			}
-			conn.Write(encodedResponse)
+			redisCommand.connection.Write(encodedResponse)
 		} else {
 			fmt.Errorf("Did not generate response for command")
-			conn.Write([]byte("+OK\r\n"))
+			redisCommand.connection.Write([]byte("+OK\r\n"))
 		}
 	}
-
 }
