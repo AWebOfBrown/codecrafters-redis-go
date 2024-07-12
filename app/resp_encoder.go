@@ -16,12 +16,18 @@ func (re *RESPEncoder) Encode(tokens []*RESPToken) []*RESPToken {
 			re.encodeBulkString(tok)
 		case String:
 			re.encodeString(tok)
+		case Integer:
+			re.encodeInteger(tok)
 		default:
 			panic(fmt.Sprintf("Unknown token type: %s", tok.Type))
 		}
 	}
 
 	return tokens
+}
+
+func (re *RESPEncoder) encodeInteger(token *RESPToken) {
+	token.Value = []byte(fmt.Sprintf(":%d\r\n", token.Value))
 }
 
 func (re *RESPEncoder) encodeBulkString(token *RESPToken) {

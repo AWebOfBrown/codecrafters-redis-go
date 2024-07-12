@@ -18,6 +18,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	//todo: refactor to use interface for values
 	dict := make(map[string]string)
 	commandQueue := make(chan RedisCommandQueueMessage)
 

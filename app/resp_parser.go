@@ -19,10 +19,9 @@ type RESPParser struct {
 	dict    map[string]string
 }
 
-func NewRESPParser(encoder *RESPEncoder, mp map[string]string) *RESPParser {
+func NewRESPParser(mp map[string]string) *RESPParser {
 	return &RESPParser{
-		encoder: encoder,
-		dict:    mp,
+		dict: mp,
 	}
 }
 
@@ -50,15 +49,38 @@ func (p *RESPParser) Parse(tokens []*RESPToken) []*RESPToken {
 			key := tokens[2].Value.(string)
 			value := p.dict[key]
 			response = []*RESPToken{{Type: "$", Value: value}}
+		case "incr":
+			response = p.parseIncr(tokens)
 		}
 	}
 
 	return response
 }
 
+func (p *RESPParser) parseIncr(tokens []*RESPToken) []*RESPToken {
+	key := tokens[2].Value.(string)
+
+	//todo: handle incrementing strings (error)
+	i, _ := strconv.Atoi(p.dict[key])
+	i = i + 1
+	p.dict[key] = strconv.Itoa(i)
+
+	return []*RESPToken{{Value: i, Type: Integer}}
+}
+
 func (p *RESPParser) parseSet(tokens []*RESPToken) []*RESPToken {
 	key := tokens[2].Value.(string)
-	value := tokens[3].Value.(string)
+	var value string
+
+	switch v := tokens[3].Value.(type) {
+	case int:
+		value = strconv.Itoa(v)
+	case string:
+		value = v
+	default:
+		//todo: handle
+		panic("Unrecognised type")
+	}
 
 	p.dict[key] = value
 
