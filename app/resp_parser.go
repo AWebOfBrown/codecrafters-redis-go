@@ -6,13 +6,6 @@ import (
 	"time"
 )
 
-type RedisCommand string
-
-const (
-	ECHO = "ECHO"
-	SET  = "SET"
-)
-
 type RESPParser struct {
 	lexer   *RESPLexer
 	encoder *RESPEncoder
@@ -60,8 +53,14 @@ func (p *RESPParser) Parse(tokens []*RESPToken) []*RESPToken {
 func (p *RESPParser) parseIncr(tokens []*RESPToken) []*RESPToken {
 	key := tokens[2].Value.(string)
 
+	currVal := p.dict[key]
+
+	if currVal == "" {
+		p.dict[key] = strconv.Itoa(1)
+		return []*RESPToken{{Value: 1, Type: Integer}}
+	}
 	//todo: handle incrementing strings (error)
-	i, _ := strconv.Atoi(p.dict[key])
+	i, _ := strconv.Atoi(currVal)
 	i = i + 1
 	p.dict[key] = strconv.Itoa(i)
 
@@ -70,6 +69,7 @@ func (p *RESPParser) parseIncr(tokens []*RESPToken) []*RESPToken {
 
 func (p *RESPParser) parseSet(tokens []*RESPToken) []*RESPToken {
 	key := tokens[2].Value.(string)
+
 	var value string
 
 	switch v := tokens[3].Value.(type) {

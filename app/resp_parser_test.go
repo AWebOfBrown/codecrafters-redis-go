@@ -5,7 +5,7 @@ import (
 )
 
 func Test_ParserTest(t *testing.T) {
-	t.Run("Parse INCR", func(t *testing.T) {
+	t.Run("Parse INCR of a previously SET value", func(t *testing.T) {
 		dict := make(map[string]string)
 		parser := NewRESPParser(dict)
 
