@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -18,65 +19,78 @@ func NewRESPParser(mp map[string]string) *RESPParser {
 	}
 }
 
-func (p *RESPParser) Parse(tokens []*RESPToken) []*RESPToken {
+func (p *RESPParser) Parse(tokens []*RESPToken) ([]*RESPToken, error) {
 	var response []*RESPToken
 
 	command := tokens[1].Value
+
+	var parsingError error
+
 	if str, ok := command.(string); ok {
 		switch strings.ToLower(str) {
 		case "echo":
-			response = []*RESPToken{tokens[2]}
+			token, err := NewRESPToken(BulkString, tokens[2].Value.(string))
+			parsingError = err
+			response = []*RESPToken{token}
 		case "ping":
-			response = []*RESPToken{
-				{
-					Type:   "$",
-					Value:  "PONG",
-					length: 4,
-				},
-			}
+			token, err := NewRESPToken(BulkString, "PONG")
+			parsingError = err
+			response = []*RESPToken{token}
 		case "set":
 			p.parseSet(tokens)
 			//todo: handle returning set value if requested
-			response = []*RESPToken{{Type: "+", Value: "OK"}}
+			token, e := NewRESPToken(BulkString, "OK")
+			parsingError = e
+			response = []*RESPToken{token}
 		case "get":
 			key := tokens[2].Value.(string)
+			// todo: Stop assuming this is a string
 			value := p.dict[key]
-			response = []*RESPToken{{Type: "$", Value: value}}
+			token, err := NewRESPToken(BulkString, value)
+			parsingError = err
+			response = []*RESPToken{token}
 		case "incr":
-			response = p.parseIncr(tokens)
+			i, err := p.parseIncr(tokens)
+			parsingError = err
+			token, _ := NewRESPToken(Integer, strconv.Itoa(i))
+			response = []*RESPToken{token}
 		case "multi":
-			response = []*RESPToken{{Type: "$", Value: "OK"}}
+			token, _ := NewRESPToken(BulkString, "OK")
+			response = []*RESPToken{token}
+			// Should be handled elsewhere, this case is when exec is called w/o multi first.
+		case "exec":
+			token, _ := NewRESPToken(Error, "EXEC without MULTI")
+			response = []*RESPToken{token}
+		default:
+			panic(fmt.Errorf("encountered unhandled/unsupported command %s", command))
 		}
 	}
 
-	return response
+	return response, parsingError
 }
 
-func (p *RESPParser) parseIncr(tokens []*RESPToken) []*RESPToken {
+func (p *RESPParser) parseIncr(tokens []*RESPToken) (int, error) {
 	key := tokens[2].Value.(string)
 
 	currVal := p.dict[key]
 
 	if currVal == "" {
 		p.dict[key] = strconv.Itoa(1)
-		return []*RESPToken{{Value: 1, Type: Integer}}
+		return 1, nil
 	}
 
 	currValAsInteger, err := strconv.Atoi(currVal)
 	if err != nil {
-		return []*RESPToken{{
-			Value: "value is not an integer or out of range",
-			Type:  Error,
-		}}
+		return -1, fmt.Errorf("value is not an integer or out of range")
 	}
 	//todo: handle incrementing strings (error)
 	currValAsInteger = 1 + currValAsInteger
 	p.dict[key] = strconv.Itoa(currValAsInteger)
 
-	return []*RESPToken{{Value: currValAsInteger, Type: Integer}}
+	return currValAsInteger, nil
 }
 
-func (p *RESPParser) parseSet(tokens []*RESPToken) []*RESPToken {
+func (p *RESPParser) parseSet(tokens []*RESPToken) string {
 	key := tokens[2].Value.(string)
 
 	var value string
@@ -123,11 +137,5 @@ func (p *RESPParser) parseSet(tokens []*RESPToken) []*RESPToken {
 		}(&p.dict, key)
 	}
 
-	return []*RESPToken{
-		{
-			Type:   "$",
-			Value:  p.dict[key],
-			length: len(value),
-		},
-	}
+	return value
 }

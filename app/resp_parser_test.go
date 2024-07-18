@@ -42,7 +42,7 @@ func Test_ParserTest(t *testing.T) {
 			}}
 
 		parser.Parse(setCommand)
-		incResult := parser.Parse(incrCommand)
+		incResult, _ := parser.Parse(incrCommand)
 
 		if incResult[0].Value != 6 {
 			t.Error("Whoops")

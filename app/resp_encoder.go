@@ -21,7 +21,7 @@ func (re *RESPEncoder) Encode(tokens []*RESPToken) []*RESPToken {
 		case Error:
 			re.encodeError(tok)
 		default:
-			panic(fmt.Sprintf("Unknown token type: %s", tok.Type))
+			panic(fmt.Sprintf("Unhandled token type: %s", tok.Type))
 		}
 	}
 

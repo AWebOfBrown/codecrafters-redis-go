@@ -7,31 +7,6 @@ import (
 	"strconv"
 )
 
-type RedisDataType string
-
-const (
-	String         = "+"
-	Error          = "-"
-	Integer        = ":"
-	BulkString     = "$"
-	Array          = "*"
-	Null           = "_"
-	Boolean        = "#"
-	Double         = ","
-	BigNumber      = "("
-	BulkError      = "!"
-	VerbatimString = "="
-	Map            = "%"
-	Set            = "~"
-	Push           = ">"
-)
-
-type RESPToken struct {
-	Type   RedisDataType
-	Value  interface{}
-	length int
-}
-
 type RESPLexer struct {
 	reader    *bufio.Reader
 	readIndex int
