@@ -2,21 +2,27 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"time"
 )
 
 type RESPParser struct {
-	lexer   *RESPLexer
-	encoder *RESPEncoder
-	dict    map[string]string
+	dict          map[string]string
+	multiContext  *MultiContext
+	currentClient *net.Conn
 }
 
-func NewRESPParser(mp map[string]string) *RESPParser {
+func NewRESPParser(mp map[string]string, mc *MultiContext) *RESPParser {
 	return &RESPParser{
-		dict: mp,
+		dict:         mp,
+		multiContext: mc,
 	}
+}
+
+func (p *RESPParser) SetClientConnection(conn *net.Conn) {
+	p.currentClient = conn
 }
 
 func (p *RESPParser) Parse(tokens []*RESPToken) ([]*RESPToken, error) {
@@ -56,6 +62,7 @@ func (p *RESPParser) Parse(tokens []*RESPToken) ([]*RESPToken, error) {
 			response = []*RESPToken{token}
 		case "multi":
 			token, _ := NewRESPToken(BulkString, "OK")
+			p.multiContext.AddTxConnection(p.currentClient)
 			response = []*RESPToken{token}
 			// Should be handled elsewhere, this case is when exec is called w/o multi first.
 		case "exec":

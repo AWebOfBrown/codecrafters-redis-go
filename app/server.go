@@ -8,7 +8,7 @@ import (
 
 type RedisCommandQueueMessage struct {
 	command    []*RESPToken
-	connection net.Conn
+	connection *net.Conn
 }
 
 func main() {
@@ -24,7 +24,7 @@ func main() {
 
 	mc := NewMultiContext()
 	// single thread for handling writes/reads to dict
-	go commandConsumerController(commandQueue, dict, &mc)
+	go CommandConsumerController(commandQueue, dict, &mc)
 
 	for {
 		conn, err := l.Accept()
@@ -33,6 +33,6 @@ func main() {
 			os.Exit(1)
 		}
 
-		go commandProducerController(conn, commandQueue)
+		go commandProducerController(&conn, commandQueue)
 	}
 }

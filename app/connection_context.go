@@ -6,38 +6,43 @@ import (
 )
 
 type MultiContext struct {
-	dict map[*net.Conn][][]*RESPToken
+	dict map[string][][]*RESPToken
 }
 
 func NewMultiContext() MultiContext {
-	dict := make(map[*net.Conn][][]*RESPToken)
+	dict := make(map[string][][]*RESPToken)
 	return MultiContext{
 		dict: dict,
 	}
 }
 
 func (mc *MultiContext) CheckActiveTX(conn *net.Conn) bool {
-	isTx := mc.dict[conn] != nil
-	return isTx
+	key := (*conn).RemoteAddr().String()
+	_, ok := mc.dict[key]
+	return ok
 }
 
 func (mc *MultiContext) AddTxConnection(conn *net.Conn) {
-	mc.dict[conn] = make([][]*RESPToken, 0)
+	key := (*conn).RemoteAddr().String()
+	mc.dict[key] = make([][]*RESPToken, 0)
 }
 
 func (mc *MultiContext) EnqueueCommand(conn *net.Conn, cmd []*RESPToken) error {
-	val := mc.dict[conn]
+	key := (*conn).RemoteAddr().String()
+	val := mc.dict[key]
 	if val == nil {
 		return io.EOF
 	}
-	mc.dict[conn] = append(val, cmd)
+	mc.dict[key] = append(val, cmd)
 	return nil
 }
 
 func (mc *MultiContext) GetQueuedCommands(conn *net.Conn) [][]*RESPToken {
-	return mc.dict[conn]
+	key := (*conn).RemoteAddr().String()
+	return mc.dict[key]
 }
 
-func (mc *MultiContext) RemoveTxConnection(c *net.Conn) {
-	delete(mc.dict, c)
+func (mc *MultiContext) RemoveTxConnection(conn *net.Conn) {
+	key := (*conn).RemoteAddr().String()
+	delete(mc.dict, key)
 }

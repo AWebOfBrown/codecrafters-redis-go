@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net"
 	"strings"
 )
@@ -17,44 +18,58 @@ func handleTransaction(command []*RESPToken, conn *net.Conn, mc *MultiContext, p
 
 	switch strings.ToLower(cmdToken) {
 	case "multi":
-		response = []*RESPToken{{Type: String, Value: "+OK\r\n"}}
+		token, _ := NewRESPToken(String, "OK")
+		response = []*RESPToken{token}
 	case "exec":
 		execResponses := make([][]*RESPToken, 0)
-		for _, queuedCommand := range mc.GetQueuedCommands(conn) {
-			if _, ok := response.([][]*RESPToken); ok {
-				result, err := parser.Parse(queuedCommand)
-				if err != nil {
-					//todo: Handle better.
-					errToken, _ := NewRESPToken(Error, "oops")
-					execResponses = append(execResponses, []*RESPToken{errToken})
-				}
-				execResponses = append(execResponses, result)
-			}
+		queuedCommands := mc.GetQueuedCommands(conn)
+		qtyQueuedCommands := len(queuedCommands)
+		if qtyQueuedCommands == 0 {
+			emptyArray, _ := NewRESPToken(Array, "0")
+			execResponses = append(execResponses, []*RESPToken{emptyArray})
 			response = execResponses
+		} else {
+			for _, queuedCommand := range queuedCommands {
+				if _, ok := response.([][]*RESPToken); ok {
+					result, err := parser.Parse(queuedCommand)
+					if err != nil {
+						//todo: Handle better.
+						errToken, _ := NewRESPToken(Error, "oops")
+						execResponses = append(execResponses, []*RESPToken{errToken})
+					}
+					execResponses = append(execResponses, result)
+				}
+				response = execResponses
+			}
 		}
 		mc.RemoveTxConnection(conn)
 	default:
 		//todo: Validate command before enqueue
 		mc.EnqueueCommand(conn, command)
-		response = []*RESPToken{{Type: String, Value: "+QUEUED\r\n"}}
+		token, _ := NewRESPToken(String, "QUEUED")
+		response = []*RESPToken{token}
 	}
 
 	return response, nil
 }
 
-func commandConsumerController(queue <-chan RedisCommandQueueMessage, dict map[string]string, multiContext *MultiContext) {
-	parser := NewRESPParser(dict)
+func CommandConsumerController(queue <-chan RedisCommandQueueMessage, dict map[string]string, multiContext *MultiContext) {
+	parser := NewRESPParser(dict, multiContext)
 	for {
 		redisCommand := <-queue
+		conn := *redisCommand.connection
+		parser.SetClientConnection(redisCommand.connection)
 
 		// Could be singular, or multi-responses in case of a TX
 		var response any
 
-		if multiContext.CheckActiveTX(&redisCommand.connection) {
-			result, err := handleTransaction(redisCommand.command, &redisCommand.connection, multiContext, parser)
+		isActiveTx := multiContext.CheckActiveTX(&conn)
+
+		if isActiveTx {
+			result, err := handleTransaction(redisCommand.command, redisCommand.connection, multiContext, parser)
 			if err != nil {
-				redisCommand.connection.Write([]byte("+ERR\r\n"))
-				redisCommand.connection.Close()
+				conn.Write([]byte("+ERR\r\n"))
+				conn.Close()
 				return
 			}
 			response = result
@@ -62,15 +77,15 @@ func commandConsumerController(queue <-chan RedisCommandQueueMessage, dict map[s
 			result, err := commandConsumer(redisCommand.command, parser)
 			if err != nil {
 				responseToken, _ := NewRESPToken(Error, err.Error())
-				redisCommand.connection.Write([]byte(responseToken.Value.([]byte)))
-				redisCommand.connection.Close()
+				conn.Write([]byte(responseToken.Value.([]byte)))
+				conn.Close()
 				return
 			}
 			response = result
 		}
 
 		responseBytes := serialiseTokens(response)
-		redisCommand.connection.Write(responseBytes)
+		conn.Write(responseBytes)
 	}
 }
 
@@ -99,7 +114,7 @@ func serialiseTokens(tokens any) []byte {
 			}
 		}
 	default:
-		panic("encoding unsupported type")
+		panic(fmt.Sprintf("encoding unsupported type: %T", tokens))
 	}
 
 	return responseData

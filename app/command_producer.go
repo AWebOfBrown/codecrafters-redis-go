@@ -14,15 +14,15 @@ func commandProducer(lexer *RESPLexer) ([]*RESPToken, error) {
 		if err == io.EOF {
 			return nil, err
 		}
-		fmt.Errorf("Error %s", err)
+		fmt.Printf("Error %s", err)
 		return nil, err
 	}
 
 	return tokens, nil
 }
 
-func commandProducerController(conn net.Conn, queue chan<- RedisCommandQueueMessage) {
-	reader := bufio.NewReader(conn)
+func commandProducerController(conn *net.Conn, queue chan<- RedisCommandQueueMessage) {
+	reader := bufio.NewReader(*conn)
 	lexer := NewRESPLexer(reader)
 
 	for {
@@ -30,11 +30,11 @@ func commandProducerController(conn net.Conn, queue chan<- RedisCommandQueueMess
 
 		if err != nil {
 			if err == io.EOF {
-				conn.Close()
+				(*conn).Close()
 				return
 			}
-			fmt.Errorf("Unknown error %s", err)
-			conn.Close()
+			fmt.Printf("Unknown error %s", err)
+			(*conn).Close()
 			return
 		}
 

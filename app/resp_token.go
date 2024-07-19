@@ -59,6 +59,11 @@ func NewRESPToken(rdType RedisDataType, value string) (*RESPToken, error) {
 			Type:  Error,
 			Value: encodeErrorValue(value),
 		}
+	case Array:
+		token = &RESPToken{
+			Type:  Array,
+			Value: []byte(fmt.Sprintf("*%s\r\n", value)),
+		}
 	default:
 		panic(fmt.Sprintf("Unhandled token type: %s", rdType))
 	}
