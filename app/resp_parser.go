@@ -9,14 +9,14 @@ import (
 
 type RESPParser struct {
 	dict            map[string]string
-	multiContext    *TransactionContext
+	txContext       *TransactionContext
 	currentClientID string
 }
 
 func NewRESPParser(mp map[string]string, mc *TransactionContext) *RESPParser {
 	return &RESPParser{
-		dict:         mp,
-		multiContext: mc,
+		dict:      mp,
+		txContext: mc,
 	}
 }
 
@@ -65,11 +65,14 @@ func (p *RESPParser) Parse(tokens []*RESPToken, isTransactional bool) (RESPRespo
 			response = NewIndividualRESPResponse([]*RESPToken{token})
 		case "multi":
 			token, _ := NewRESPToken(BulkString, "OK")
-			p.multiContext.RegisterActiveClientTX(p.currentClientID)
+			p.txContext.RegisterActiveClientTX(p.currentClientID)
 			response = NewIndividualRESPResponse([]*RESPToken{token})
 			// Should be handled elsewhere, this case is when exec is called w/o multi first.
 		case "exec":
 			token, _ := NewRESPToken(Error, "EXEC without MULTI")
+			response = NewIndividualRESPResponse([]*RESPToken{token})
+		case "discard":
+			token, _ := NewRESPToken(Error, "DISCARD without MULTI")
 			response = NewIndividualRESPResponse([]*RESPToken{token})
 		default:
 			panic(fmt.Errorf("encountered unhandled/unsupported command %s", command))
@@ -83,15 +86,19 @@ func (p *RESPParser) Parse(tokens []*RESPToken, isTransactional bool) (RESPRespo
 func (p *RESPParser) parseTransaction(tokens []*RESPToken) (RESPResponse, error) {
 	cmdToken := tokens[1].Value.(string)
 
-	var response RESPResponseList
+	var response RESPResponse
 
 	switch strings.ToLower(cmdToken) {
+	case "discard":
+		p.txContext.RemoveClientTX(p.currentClientID)
+		token, _ := NewRESPToken(String, "OK")
+		response = NewIndividualRESPResponse([]*RESPToken{token})
 	case "multi":
 		token, _ := NewRESPToken(String, "OK")
 		response = *NewRESPResponseList([][]*RESPToken{{token}})
 	case "exec":
 		execResponses := make([][]*RESPToken, 0)
-		queuedCommands := p.multiContext.GetQueuedCommands(p.currentClientID)
+		queuedCommands := p.txContext.GetQueuedCommands(p.currentClientID)
 		qtyQueuedCommands := len(queuedCommands)
 		if qtyQueuedCommands == 0 {
 			emptyArray, _ := NewRESPToken(Array, "0")
@@ -109,18 +116,21 @@ func (p *RESPParser) parseTransaction(tokens []*RESPToken) (RESPResponse, error)
 						execResponses = append(execResponses, singleResponse.tokens)
 					}
 				}
-
-				response = *NewRESPResponseList(execResponses)
 			}
-			lengthOfResponse := len(response.tokens)
-			leadingArrayToken, _ := NewRESPToken(Array, strconv.Itoa(lengthOfResponse))
-			response.tokens = append([][]*RESPToken{{leadingArrayToken}}, response.tokens...)
-
+			response = *NewRESPResponseList(execResponses)
+			if responseList, ok := response.(RESPResponseList); ok {
+				lengthOfResponse := len(responseList.tokens)
+				leadingArrayToken, _ := NewRESPToken(Array, strconv.Itoa(lengthOfResponse))
+				responseList.tokens = append([][]*RESPToken{{leadingArrayToken}}, responseList.tokens...)
+				response = responseList
+			} else {
+				panic("Should not be returning an exec with list of commands that is not a RESPResponseList")
+			}
 		}
-		p.multiContext.RemoveTxConnection(p.currentClientID)
+		p.txContext.RemoveClientTX(p.currentClientID)
 	default:
 		//todo: Validate command before enqueue
-		p.multiContext.EnqueueCommand(p.currentClientID, tokens)
+		p.txContext.EnqueueCommand(p.currentClientID, tokens)
 		token, err := NewRESPToken(String, "QUEUED")
 		if err != nil {
 			fmt.Printf("%s", err)

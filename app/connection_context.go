@@ -37,6 +37,6 @@ func (tc *TransactionContext) GetQueuedCommands(id string) [][]*RESPToken {
 	return tc.dict[id]
 }
 
-func (mc *TransactionContext) RemoveTxConnection(id string) {
+func (mc *TransactionContext) RemoveClientTX(id string) {
 	delete(mc.dict, id)
 }
