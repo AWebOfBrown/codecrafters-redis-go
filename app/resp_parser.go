@@ -2,31 +2,34 @@ package main
 
 import (
 	"fmt"
-	"net"
 	"strconv"
 	"strings"
 	"time"
 )
 
 type RESPParser struct {
-	dict          map[string]string
-	multiContext  *MultiContext
-	currentClient *net.Conn
+	dict            map[string]string
+	multiContext    *TransactionContext
+	currentClientID string
 }
 
-func NewRESPParser(mp map[string]string, mc *MultiContext) *RESPParser {
+func NewRESPParser(mp map[string]string, mc *TransactionContext) *RESPParser {
 	return &RESPParser{
 		dict:         mp,
 		multiContext: mc,
 	}
 }
 
-func (p *RESPParser) SetClientConnection(conn *net.Conn) {
-	p.currentClient = conn
+func (p *RESPParser) SetClientConnection(id string) {
+	p.currentClientID = id
 }
 
-func (p *RESPParser) Parse(tokens []*RESPToken) ([]*RESPToken, error) {
-	var response []*RESPToken
+func (p *RESPParser) Parse(tokens []*RESPToken, isTransactional bool) (RESPResponse, error) {
+	var response RESPResponse
+
+	if isTransactional {
+		return p.parseTransaction(tokens)
+	}
 
 	command := tokens[1].Value
 
@@ -37,43 +40,96 @@ func (p *RESPParser) Parse(tokens []*RESPToken) ([]*RESPToken, error) {
 		case "echo":
 			token, err := NewRESPToken(BulkString, tokens[2].Value.(string))
 			parsingError = err
-			response = []*RESPToken{token}
+			response = NewIndividualRESPResponse([]*RESPToken{token})
 		case "ping":
 			token, err := NewRESPToken(BulkString, "PONG")
 			parsingError = err
-			response = []*RESPToken{token}
+			response = NewIndividualRESPResponse([]*RESPToken{token})
 		case "set":
 			p.parseSet(tokens)
 			//todo: handle returning set value if requested
 			token, e := NewRESPToken(BulkString, "OK")
 			parsingError = e
-			response = []*RESPToken{token}
+			response = NewIndividualRESPResponse([]*RESPToken{token})
 		case "get":
 			key := tokens[2].Value.(string)
 			// todo: Stop assuming this is a string
 			value := p.dict[key]
 			token, err := NewRESPToken(BulkString, value)
 			parsingError = err
-			response = []*RESPToken{token}
+			response = NewIndividualRESPResponse([]*RESPToken{token})
 		case "incr":
 			i, err := p.parseIncr(tokens)
 			parsingError = err
 			token, _ := NewRESPToken(Integer, strconv.Itoa(i))
-			response = []*RESPToken{token}
+			response = NewIndividualRESPResponse([]*RESPToken{token})
 		case "multi":
 			token, _ := NewRESPToken(BulkString, "OK")
-			p.multiContext.AddTxConnection(p.currentClient)
-			response = []*RESPToken{token}
+			p.multiContext.RegisterActiveClientTX(p.currentClientID)
+			response = NewIndividualRESPResponse([]*RESPToken{token})
 			// Should be handled elsewhere, this case is when exec is called w/o multi first.
 		case "exec":
 			token, _ := NewRESPToken(Error, "EXEC without MULTI")
-			response = []*RESPToken{token}
+			response = NewIndividualRESPResponse([]*RESPToken{token})
 		default:
 			panic(fmt.Errorf("encountered unhandled/unsupported command %s", command))
 		}
 	}
 
+	p.currentClientID = ""
 	return response, parsingError
+}
+
+func (p *RESPParser) parseTransaction(tokens []*RESPToken) (RESPResponse, error) {
+	cmdToken := tokens[1].Value.(string)
+
+	var response RESPResponseList
+
+	switch strings.ToLower(cmdToken) {
+	case "multi":
+		token, _ := NewRESPToken(String, "OK")
+		response = *NewRESPResponseList([][]*RESPToken{{token}})
+	case "exec":
+		execResponses := make([][]*RESPToken, 0)
+		queuedCommands := p.multiContext.GetQueuedCommands(p.currentClientID)
+		qtyQueuedCommands := len(queuedCommands)
+		if qtyQueuedCommands == 0 {
+			emptyArray, _ := NewRESPToken(Array, "0")
+			execResponses = append(execResponses, []*RESPToken{emptyArray})
+			response = *NewRESPResponseList(execResponses)
+		} else {
+			for _, queuedCommand := range queuedCommands {
+				result, err := p.Parse(queuedCommand, false)
+				if err != nil {
+					//todo: Handle better.
+					errToken, _ := NewRESPToken(Error, err.Error())
+					execResponses = append(execResponses, []*RESPToken{errToken})
+				} else {
+					if singleResponse, ok := result.(*IndividualRESPResponse); ok {
+						execResponses = append(execResponses, singleResponse.tokens)
+					}
+				}
+
+				response = *NewRESPResponseList(execResponses)
+			}
+			lengthOfResponse := len(response.tokens)
+			leadingArrayToken, _ := NewRESPToken(Array, strconv.Itoa(lengthOfResponse))
+			response.tokens = append([][]*RESPToken{{leadingArrayToken}}, response.tokens...)
+
+		}
+		p.multiContext.RemoveTxConnection(p.currentClientID)
+	default:
+		//todo: Validate command before enqueue
+		p.multiContext.EnqueueCommand(p.currentClientID, tokens)
+		token, err := NewRESPToken(String, "QUEUED")
+		if err != nil {
+			fmt.Printf("%s", err)
+		}
+		tokenList := [][]*RESPToken{{token}}
+		response = *NewRESPResponseList(tokenList)
+	}
+
+	return response, nil
 }
 
 func (p *RESPParser) parseIncr(tokens []*RESPToken) (int, error) {

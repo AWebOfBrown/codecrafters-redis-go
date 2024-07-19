@@ -22,7 +22,7 @@ func main() {
 	dict := make(map[string]string)
 	commandQueue := make(chan RedisCommandQueueMessage)
 
-	mc := NewMultiContext()
+	mc := NewTransactionContext()
 	// single thread for handling writes/reads to dict
 	go CommandConsumerController(commandQueue, dict, &mc)
 

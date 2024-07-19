@@ -2,47 +2,41 @@ package main
 
 import (
 	"io"
-	"net"
 )
 
-type MultiContext struct {
+type TransactionContext struct {
 	dict map[string][][]*RESPToken
 }
 
-func NewMultiContext() MultiContext {
+func NewTransactionContext() TransactionContext {
 	dict := make(map[string][][]*RESPToken)
-	return MultiContext{
+	return TransactionContext{
 		dict: dict,
 	}
 }
 
-func (mc *MultiContext) CheckActiveTX(conn *net.Conn) bool {
-	key := (*conn).RemoteAddr().String()
-	_, ok := mc.dict[key]
+func (tc *TransactionContext) CheckActiveTX(id string) bool {
+	_, ok := tc.dict[id]
 	return ok
 }
 
-func (mc *MultiContext) AddTxConnection(conn *net.Conn) {
-	key := (*conn).RemoteAddr().String()
-	mc.dict[key] = make([][]*RESPToken, 0)
+func (tc *TransactionContext) RegisterActiveClientTX(id string) {
+	tc.dict[id] = make([][]*RESPToken, 0)
 }
 
-func (mc *MultiContext) EnqueueCommand(conn *net.Conn, cmd []*RESPToken) error {
-	key := (*conn).RemoteAddr().String()
-	val := mc.dict[key]
+func (tc *TransactionContext) EnqueueCommand(id string, cmd []*RESPToken) error {
+	val := tc.dict[id]
 	if val == nil {
 		return io.EOF
 	}
-	mc.dict[key] = append(val, cmd)
+	tc.dict[id] = append(val, cmd)
 	return nil
 }
 
-func (mc *MultiContext) GetQueuedCommands(conn *net.Conn) [][]*RESPToken {
-	key := (*conn).RemoteAddr().String()
-	return mc.dict[key]
+func (tc *TransactionContext) GetQueuedCommands(id string) [][]*RESPToken {
+	return tc.dict[id]
 }
 
-func (mc *MultiContext) RemoveTxConnection(conn *net.Conn) {
-	key := (*conn).RemoteAddr().String()
-	delete(mc.dict, key)
+func (mc *TransactionContext) RemoveTxConnection(id string) {
+	delete(mc.dict, id)
 }

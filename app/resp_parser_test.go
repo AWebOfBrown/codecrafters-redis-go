@@ -7,7 +7,7 @@ import (
 func Test_ParserTest(t *testing.T) {
 	t.Run("Parse INCR of a previously SET value", func(t *testing.T) {
 		dict := make(map[string]string)
-		mc := NewMultiContext()
+		mc := NewTransactionContext()
 		parser := NewRESPParser(dict, &mc)
 
 		setCommand := []*RESPToken{{
@@ -42,11 +42,12 @@ func Test_ParserTest(t *testing.T) {
 				length: 3,
 			}}
 
-		parser.Parse(setCommand)
-		incResult, _ := parser.Parse(incrCommand)
+		parser.Parse(setCommand, false)
+		incResult, _ := parser.Parse(incrCommand, false)
 
-		if incResult[0].Value != 6 {
-			t.Error("Whoops")
+		str := string(incResult.serialiseRESPTokens())
+		if str != ":6\r\n" {
+			t.Errorf("want: :6\r\n, got %s", str)
 		}
 	})
 }
