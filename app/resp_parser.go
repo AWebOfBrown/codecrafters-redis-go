@@ -58,6 +58,18 @@ func (p *RESPParser) Parse(tokens []*RESPToken, isTransactional bool) (RESPRespo
 			token, err := NewRESPToken(BulkString, value)
 			parsingError = err
 			response = NewIndividualRESPResponse([]*RESPToken{token})
+		case "type":
+			key := tokens[2].Value.(string)
+			_, ok := p.dict[key]
+			var token RESPToken
+			if !ok {
+				t, _ := NewRESPToken(String, "none")
+				token = *t
+			} else {
+				t, _ := NewRESPToken(String, "string")
+				token = *t
+			}
+			response = NewIndividualRESPResponse([]*RESPToken{&token})
 		case "incr":
 			i, err := p.parseIncr(tokens)
 			parsingError = err
