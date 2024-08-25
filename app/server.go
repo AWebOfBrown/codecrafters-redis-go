@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"net"
 	"os"
+
+	"github.com/codecrafters-io/redis-starter-go/app/resp"
 )
 
 type RedisCommandQueueMessage struct {
-	command    []*RESPToken
+	command    []*resp.RESPToken
 	connection *net.Conn
 }
 
@@ -18,13 +20,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	//todo: refactor to use interface for values
-	dict := make(map[string]string)
+	dict := make(map[string]interface{})
 	commandQueue := make(chan RedisCommandQueueMessage)
 
-	mc := NewTransactionContext()
+	tc := resp.NewTransactionContext()
 	// single thread for handling writes/reads to dict
-	go CommandConsumerController(commandQueue, dict, &mc)
+	go CommandConsumerController(commandQueue, dict, &tc)
 
 	for {
 		conn, err := l.Accept()

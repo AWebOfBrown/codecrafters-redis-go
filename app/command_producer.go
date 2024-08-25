@@ -1,4 +1,4 @@
-package main
+package github.com/AWebOfBrown/codecrafters-redis-go
 
 import (
 	"bufio"

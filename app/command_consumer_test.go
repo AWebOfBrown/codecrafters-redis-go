@@ -4,14 +4,16 @@ import (
 	"bufio"
 	"net"
 	"testing"
+
+	"github.com/codecrafters-io/redis-starter-go/app/resp"
 )
 
 func Test_CommandConsumer(t *testing.T) {
 	t.Run("Test a transaction", func(t *testing.T) {
 
-		dict := make(map[string]string)
+		dict := make(map[string]interface{})
 		commandQueue := make(chan RedisCommandQueueMessage)
-		mc := NewTransactionContext()
+		mc := resp.NewTransactionContext()
 
 		client, server := net.Pipe()
 

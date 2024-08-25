@@ -1,4 +1,4 @@
-package main
+package resp
 
 import (
 	"bufio"
@@ -133,7 +133,7 @@ func (rl *RESPLexer) parseBulkString() ([]*RESPToken, error) {
 		{
 			Type:   BulkString,
 			Value:  string(removeCLRF),
-			length: length,
+			Length: length,
 		},
 	}, nil
 }
@@ -151,7 +151,7 @@ func (rl *RESPLexer) parseArray() ([]*RESPToken, error) {
 
 	tokens = append(tokens, &RESPToken{
 		Type:   Array,
-		length: length,
+		Length: length,
 	})
 
 	var parseError error

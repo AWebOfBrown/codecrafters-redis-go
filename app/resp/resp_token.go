@@ -1,4 +1,4 @@
-package main
+package resp
 
 import (
 	"fmt"
@@ -27,7 +27,7 @@ const (
 type RESPToken struct {
 	Type   RedisDataType
 	Value  interface{}
-	length int
+	Length int
 }
 
 func NewRESPToken(rdType RedisDataType, value string) (*RESPToken, error) {

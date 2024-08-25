@@ -1,19 +1,21 @@
-package main
+package resp
 
 import (
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/codecrafters-io/redis-starter-go/app/stream"
 )
 
 type RESPParser struct {
-	dict            map[string]string
+	dict            map[string]interface{}
 	txContext       *TransactionContext
 	currentClientID string
 }
 
-func NewRESPParser(mp map[string]string, mc *TransactionContext) *RESPParser {
+func NewRESPParser(mp map[string]interface{}, mc *TransactionContext) *RESPParser {
 	return &RESPParser{
 		dict:      mp,
 		txContext: mc,
@@ -52,10 +54,15 @@ func (p *RESPParser) Parse(tokens []*RESPToken, isTransactional bool) (RESPRespo
 			parsingError = e
 			response = NewIndividualRESPResponse([]*RESPToken{token})
 		case "get":
-			key := tokens[2].Value.(string)
+			key := tokens[2].Value
 			// todo: Stop assuming this is a string
-			value := p.dict[key]
-			token, err := NewRESPToken(BulkString, value)
+			k, ok := key.(string)
+			if !ok {
+				// todo: format correctly
+				return nil, nil
+			}
+			value := p.dict[k]
+			token, err := NewRESPToken(BulkString, value.(string))
 			parsingError = err
 			response = NewIndividualRESPResponse([]*RESPToken{token})
 		case "type":
@@ -86,6 +93,30 @@ func (p *RESPParser) Parse(tokens []*RESPToken, isTransactional bool) (RESPRespo
 		case "discard":
 			token, _ := NewRESPToken(Error, "DISCARD without MULTI")
 			response = NewIndividualRESPResponse([]*RESPToken{token})
+		case "xadd":
+			streamId := tokens[3].Value.(string)
+			mapOfValuesToInsert := make(map[string]interface{}, 0)
+			for i := 4; i < len(tokens); i += 2 {
+				key := tokens[i].Value.(string)
+				value := tokens[i+1].Value.(string)
+				mapOfValuesToInsert[key] = value
+			}
+
+			var targetStream *stream.Stream
+			if p.dict[streamId] == nil {
+				targetStream = stream.NewStream()
+			} else {
+				s, ok := p.dict[streamId].(stream.Stream)
+				if ok == false {
+					return nil, fmt.Errorf("Tried to add to non-stream value")
+				}
+				targetStream = &s
+			}
+
+			targetStream.Insert(streamId, mapOfValuesToInsert)
+			token, _ := NewRESPToken(String, streamId)
+			return NewIndividualRESPResponse([]*RESPToken{token}), nil
+
 		default:
 			panic(fmt.Errorf("encountered unhandled/unsupported command %s", command))
 		}
@@ -159,36 +190,34 @@ func (p *RESPParser) parseIncr(tokens []*RESPToken) (int, error) {
 
 	currVal := p.dict[key]
 
-	if currVal == "" {
-		p.dict[key] = strconv.Itoa(1)
+	if currVal == nil {
+		p.dict[key] = 1
 		return 1, nil
 	}
 
-	currValAsInteger, err := strconv.Atoi(currVal)
-	if err != nil {
-		return -1, fmt.Errorf("value is not an integer or out of range")
+	i, ok := currVal.(int)
+	if ok {
+		newVal := i + 1
+		p.dict[key] = newVal
+		return newVal, nil
 	}
-	//todo: handle incrementing strings (error)
-	currValAsInteger = 1 + currValAsInteger
-	p.dict[key] = strconv.Itoa(currValAsInteger)
 
-	return currValAsInteger, nil
+	strNum, e := strconv.Atoi(currVal.(string))
+	if e != nil {
+		return -1, fmt.Errorf("Could not increment type")
+	}
+
+	//todo: handle incrementing strings (error)
+	strNum = 1 + strNum
+	p.dict[key] = strNum
+
+	return strNum, nil
 }
 
 func (p *RESPParser) parseSet(tokens []*RESPToken) string {
 	key := tokens[2].Value.(string)
 
-	var value string
-
-	switch v := tokens[3].Value.(type) {
-	case int:
-		value = strconv.Itoa(v)
-	case string:
-		value = v
-	default:
-		//todo: handle
-		panic("Unrecognised type")
-	}
+	value := tokens[3].Value.(string)
 
 	p.dict[key] = value
 
@@ -214,7 +243,7 @@ func (p *RESPParser) parseSet(tokens []*RESPToken) string {
 	}
 
 	if includesPx && pxValue >= 1 {
-		go func(dict *map[string]string, key string) {
+		go func(dict *map[string]interface{}, key string) {
 			timer := time.NewTimer(time.Millisecond * time.Duration(pxValue))
 			<-timer.C
 			(*dict)[key] = ""

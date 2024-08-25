@@ -1,7 +1,7 @@
-package main
+package resp
 
 type RESPResponse interface {
-	serialiseRESPTokens() []byte
+	SerialiseRESPTokens() []byte
 }
 
 type IndividualRESPResponse struct {
@@ -12,7 +12,7 @@ type RESPResponseList struct {
 	tokens [][]*RESPToken
 }
 
-func (irr IndividualRESPResponse) serialiseRESPTokens() []byte {
+func (irr IndividualRESPResponse) SerialiseRESPTokens() []byte {
 	var responseData []byte
 	for _, tok := range irr.tokens {
 		strBytes, ok := tok.Value.([]byte)
@@ -29,7 +29,7 @@ func NewIndividualRESPResponse(tokens []*RESPToken) *IndividualRESPResponse {
 	}
 }
 
-func (rrl RESPResponseList) serialiseRESPTokens() []byte {
+func (rrl RESPResponseList) SerialiseRESPTokens() []byte {
 	var responseData []byte
 	for _, tokenList := range rrl.tokens {
 		for _, token := range tokenList {

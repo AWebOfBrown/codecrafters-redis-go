@@ -1,4 +1,4 @@
-package main
+package resp
 
 import (
 	"testing"
@@ -6,22 +6,22 @@ import (
 
 func Test_ParserTest(t *testing.T) {
 	t.Run("Parse INCR of a previously SET value", func(t *testing.T) {
-		dict := make(map[string]string)
+		dict := make(map[string]interface{})
 		mc := NewTransactionContext()
 		parser := NewRESPParser(dict, &mc)
 
 		setCommand := []*RESPToken{{
 			Type:   Array,
-			length: 3,
+			Length: 3,
 		}, {
 			Type:   BulkString,
 			Value:  "SET",
-			length: 3,
+			Length: 3,
 		},
 			{
 				Type:   BulkString,
 				Value:  "foo",
-				length: 3,
+				Length: 3,
 			},
 			{
 				Type:  Integer,
@@ -30,22 +30,22 @@ func Test_ParserTest(t *testing.T) {
 
 		incrCommand := []*RESPToken{{
 			Type:   Array,
-			length: 2,
+			Length: 2,
 		}, {
 			Type:   BulkString,
 			Value:  "INCR",
-			length: 4,
+			Length: 4,
 		},
 			{
 				Type:   BulkString,
 				Value:  "foo",
-				length: 3,
+				Length: 3,
 			}}
 
 		parser.Parse(setCommand, false)
 		incResult, _ := parser.Parse(incrCommand, false)
 
-		str := string(incResult.serialiseRESPTokens())
+		str := string(incResult.SerialiseRESPTokens())
 		if str != ":6\r\n" {
 			t.Errorf("want: :6\r\n, got %s", str)
 		}
