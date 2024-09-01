@@ -71,13 +71,19 @@ func (p *RESPParser) Parse(tokens []*RESPToken, isTransactional bool) (RESPRespo
 			}
 		case "type":
 			key := tokens[2].Value.(string)
-			_, ok := p.dict[key]
+			value, ok := p.dict[key]
 			var token RESPToken
-			if !ok {
-				t, _ := NewRESPToken(String, "none")
-				token = *t
+			if ok {
+				_, isStream := value.(*stream.Stream)
+				if isStream {
+					t, _ := NewRESPToken(String, "stream")
+					token = *t
+				} else {
+					t, _ := NewRESPToken(String, "string")
+					token = *t
+				}
 			} else {
-				t, _ := NewRESPToken(String, "string")
+				t, _ := NewRESPToken(String, "none")
 				token = *t
 			}
 			response = NewIndividualRESPResponse([]*RESPToken{&token})
@@ -98,6 +104,7 @@ func (p *RESPParser) Parse(tokens []*RESPToken, isTransactional bool) (RESPRespo
 			token, _ := NewRESPToken(Error, "DISCARD without MULTI")
 			response = NewIndividualRESPResponse([]*RESPToken{token})
 		case "xadd":
+			key := tokens[2].Value.(string)
 			streamId := tokens[3].Value.(string)
 			mapOfValuesToInsert := make(map[string]interface{}, 0)
 			for i := 4; i < len(tokens); i += 2 {
@@ -107,16 +114,16 @@ func (p *RESPParser) Parse(tokens []*RESPToken, isTransactional bool) (RESPRespo
 			}
 
 			var targetStream *stream.Stream
-			if p.dict[streamId] == nil {
+			if p.dict[key] == nil {
 				targetStream = stream.NewStream()
+				p.dict[key] = targetStream
 			} else {
-				s, ok := p.dict[streamId].(stream.Stream)
-				if ok == false {
-					return nil, fmt.Errorf("Tried to add to non-stream value")
+				s, ok := p.dict[key].(stream.Stream)
+				if !ok {
+					return nil, fmt.Errorf("tried to add to non-stream value")
 				}
 				targetStream = &s
 			}
-
 			targetStream.Insert(streamId, mapOfValuesToInsert)
 			token, _ := NewRESPToken(String, streamId)
 			return NewIndividualRESPResponse([]*RESPToken{token}), nil
