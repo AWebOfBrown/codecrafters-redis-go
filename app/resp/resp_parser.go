@@ -55,16 +55,20 @@ func (p *RESPParser) Parse(tokens []*RESPToken, isTransactional bool) (RESPRespo
 			response = NewIndividualRESPResponse([]*RESPToken{token})
 		case "get":
 			key := tokens[2].Value
-			// todo: Stop assuming this is a string
 			k, ok := key.(string)
 			if !ok {
-				// todo: format correctly
 				return nil, nil
 			}
 			value := p.dict[k]
-			token, err := NewRESPToken(BulkString, value.(string))
-			parsingError = err
-			response = NewIndividualRESPResponse([]*RESPToken{token})
+
+			if value != nil {
+				token, err := NewRESPToken(BulkString, value.(string))
+				parsingError = err
+				response = NewIndividualRESPResponse([]*RESPToken{token})
+			} else {
+				nullBulkString, _ := NewRESPToken(BulkString, "")
+				return NewIndividualRESPResponse([]*RESPToken{nullBulkString}), nil
+			}
 		case "type":
 			key := tokens[2].Value.(string)
 			_, ok := p.dict[key]
@@ -80,7 +84,7 @@ func (p *RESPParser) Parse(tokens []*RESPToken, isTransactional bool) (RESPRespo
 		case "incr":
 			i, err := p.parseIncr(tokens)
 			parsingError = err
-			token, _ := NewRESPToken(Integer, strconv.Itoa(i))
+			token, _ := NewRESPToken(Integer, i)
 			response = NewIndividualRESPResponse([]*RESPToken{token})
 		case "multi":
 			token, _ := NewRESPToken(BulkString, "OK")
@@ -185,33 +189,31 @@ func (p *RESPParser) parseTransaction(tokens []*RESPToken) (RESPResponse, error)
 	return response, nil
 }
 
-func (p *RESPParser) parseIncr(tokens []*RESPToken) (int, error) {
+func (p *RESPParser) parseIncr(tokens []*RESPToken) (string, error) {
 	key := tokens[2].Value.(string)
 
 	currVal := p.dict[key]
 
 	if currVal == nil {
-		p.dict[key] = 1
-		return 1, nil
+		p.dict[key] = "1"
+		return "1", nil
 	}
 
-	i, ok := currVal.(int)
-	if ok {
-		newVal := i + 1
-		p.dict[key] = newVal
-		return newVal, nil
+	currValAsStr, ok := currVal.(string)
+	if !ok {
+		//todo: error
+		return "", nil
 	}
 
-	strNum, e := strconv.Atoi(currVal.(string))
-	if e != nil {
-		return -1, fmt.Errorf("Could not increment type")
+	currentNumber, error := strconv.Atoi(currValAsStr)
+	if error == nil {
+		newVal := currentNumber + 1
+		newValString := strconv.Itoa(newVal)
+		p.dict[key] = newValString
+		return newValString, nil
+	} else {
+		return "", fmt.Errorf("value is not an integer or out of range")
 	}
-
-	//todo: handle incrementing strings (error)
-	strNum = 1 + strNum
-	p.dict[key] = strNum
-
-	return strNum, nil
 }
 
 func (p *RESPParser) parseSet(tokens []*RESPToken) string {

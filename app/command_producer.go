@@ -1,13 +1,15 @@
-package github.com/AWebOfBrown/codecrafters-redis-go
+package main
 
 import (
 	"bufio"
 	"fmt"
 	"io"
 	"net"
+
+	"github.com/codecrafters-io/redis-starter-go/app/resp"
 )
 
-func commandProducer(lexer *RESPLexer) ([]*RESPToken, error) {
+func commandProducer(lexer *resp.RESPLexer) ([]*resp.RESPToken, error) {
 	tokens, err := lexer.ProduceTokens()
 
 	if err != nil {
@@ -23,7 +25,7 @@ func commandProducer(lexer *RESPLexer) ([]*RESPToken, error) {
 
 func commandProducerController(conn *net.Conn, queue chan<- RedisCommandQueueMessage) {
 	reader := bufio.NewReader(*conn)
-	lexer := NewRESPLexer(reader)
+	lexer := resp.NewRESPLexer(reader)
 
 	for {
 		command, err := commandProducer(lexer)

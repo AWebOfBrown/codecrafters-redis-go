@@ -34,6 +34,12 @@ func NewRESPToken(rdType RedisDataType, value string) (*RESPToken, error) {
 	var token *RESPToken
 
 	switch rdType {
+	case Null:
+		v := encodeNullValue()
+		token = &RESPToken{
+			Type:  Null,
+			Value: v,
+		}
 	case BulkString:
 		v := encodeBulkStringValue(value)
 		token = &RESPToken{
@@ -69,6 +75,10 @@ func NewRESPToken(rdType RedisDataType, value string) (*RESPToken, error) {
 	}
 
 	return token, nil
+}
+
+func encodeNullValue() []byte {
+	return []byte("_\r\n")
 }
 
 func encodeErrorValue(value string) []byte {
