@@ -44,7 +44,7 @@ func (p *RESPParser) Parse(tokens []*RESPToken, isTransactional bool) (RESPRespo
 			parsingError = err
 			response = NewIndividualRESPResponse([]*RESPToken{token})
 		case "ping":
-			token, err := NewRESPToken(BulkString, "PONG")
+			token, err := NewRESPToken(String, "PONG")
 			parsingError = err
 			response = NewIndividualRESPResponse([]*RESPToken{token})
 		case "set":
