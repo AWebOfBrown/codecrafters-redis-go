@@ -1,12 +1,13 @@
-package main
+package commands
 
 import (
-	"github.com/codecrafters-io/redis-starter-go/app/resp"
+	"github.com/AWebOfBrown/codecrafters-http-server-go/internal/resp"
 )
 
 func CommandConsumerController(queue <-chan RedisCommandQueueMessage, dict map[string]interface{}, transactionContext *resp.TransactionContext) {
 	parser := resp.NewRESPParser(dict, transactionContext)
 	for {
+
 		redisCommand := <-queue
 		conn := *redisCommand.connection
 
@@ -28,6 +29,6 @@ func CommandConsumerController(queue <-chan RedisCommandQueueMessage, dict map[s
 			shouldCloseConnection = false
 		}
 
-		go responseWriter(responseTokens, shouldCloseConnection, &conn)
+		go resp.ResponseWriter(responseTokens, shouldCloseConnection, &conn)
 	}
 }

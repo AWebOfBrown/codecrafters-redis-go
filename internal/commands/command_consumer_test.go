@@ -1,11 +1,11 @@
-package main
+package commands
 
 import (
 	"bufio"
 	"net"
 	"testing"
 
-	"github.com/codecrafters-io/redis-starter-go/app/resp"
+	"github.com/AWebOfBrown/codecrafters-http-server-go/internal/resp"
 )
 
 func Test_CommandConsumer(t *testing.T) {
@@ -18,7 +18,7 @@ func Test_CommandConsumer(t *testing.T) {
 		client, server := net.Pipe()
 
 		go CommandConsumerController(commandQueue, dict, &mc)
-		go commandProducerController(&server, commandQueue)
+		go CommandProducerController(&server, commandQueue)
 
 		reader := bufio.NewReader(client)
 

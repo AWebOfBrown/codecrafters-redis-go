@@ -1,4 +1,4 @@
-package main
+package commands
 
 import (
 	"bufio"
@@ -6,8 +6,13 @@ import (
 	"io"
 	"net"
 
-	"github.com/codecrafters-io/redis-starter-go/app/resp"
+	"github.com/AWebOfBrown/codecrafters-http-server-go/internal/resp"
 )
+
+type RedisCommandQueueMessage struct {
+	command    []*resp.RESPToken
+	connection *net.Conn
+}
 
 func commandProducer(lexer *resp.RESPLexer) ([]*resp.RESPToken, error) {
 	tokens, err := lexer.ProduceTokens()
@@ -23,7 +28,7 @@ func commandProducer(lexer *resp.RESPLexer) ([]*resp.RESPToken, error) {
 	return tokens, nil
 }
 
-func commandProducerController(conn *net.Conn, queue chan<- RedisCommandQueueMessage) {
+func CommandProducerController(conn *net.Conn, queue chan<- RedisCommandQueueMessage) {
 	reader := bufio.NewReader(*conn)
 	lexer := resp.NewRESPLexer(reader)
 

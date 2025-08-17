@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codecrafters-io/redis-starter-go/app/stream"
+	"github.com/AWebOfBrown/codecrafters-http-server-go/internal/stream"
 )
 
 type RESPParser struct {
